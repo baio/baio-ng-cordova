@@ -35,7 +35,7 @@ __onCordovaPushNotifications =
         console.log "badgeErrorHandler"
       window.plugins.pushNotification.setApplicationIconBadgeNumber badgeSuccessHandler, badgeErrorHandler, event.badge
 
-app.factory "cordovaPushNotifications",  ->
+baioNgCordova.factory "cordovaPushNotifications",  ->
 
   onRegistered = null
   onMsg = null
@@ -54,7 +54,7 @@ app.factory "cordovaPushNotifications",  ->
   register: (appKey, onRegistered, onMsg, onError) ->
     if !window.cordova
       console.log "Cordova not found, suppose debug mode"
-      onRegistered "-1"
+      onRegistered null, "browser"
       return
     __onCordovaPushNotifications.onRegistered = onRegistered
     __onCordovaPushNotifications.onMsg = onMsg

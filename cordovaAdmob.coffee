@@ -1,7 +1,6 @@
 "use strict"
 
-
-app.factory "cordovaAdmob",  ->
+baioNgCordova.factory "cordovaAdmob",  ->
 
   successCallback = ->
     console.log "add mob created"
