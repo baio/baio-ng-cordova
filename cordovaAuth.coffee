@@ -1,4 +1,4 @@
-baioAuth = angular.module "baio-ng-cordova-auth", ["ngResource", "jmdobry.angular-cache"]
+baioAuth = angular.module "baio-ng-cordova-auth", ["ngResource", "angular-data.DSCacheFactory"]
 
 BAIO_AUTH_EVENTS =
   forbidden: 'baioAuth:FORBIDDEN',
@@ -9,9 +9,12 @@ BAIO_AUTH_EVENTS =
 
 baioAuth.constant('BAIO_AUTH_EVENTS', BAIO_AUTH_EVENTS)
 
-baioAuth.factory "tokenFactory", ($angularCacheFactory) ->
+baioAuth.factory "tokenFactory", (DSCacheFactory) ->
 
-  authCache = $angularCacheFactory('authCache')
+  authCache = DSCacheFactory 'authCache',
+    maxAge: 1000 * 60 * 60 * 24 * 2, #Items added to this cache expire after 2 days.
+    deleteOnExpire: 'aggressive', #Items will be deleted from this cache right when they expire.
+    storageMode: 'localStorage'
 
   get: ->
     authCache.get "/token"
@@ -27,11 +30,9 @@ baioAuth.factory "baioAuthInterceptor", (tokenFactory, $rootScope, $q) ->
 
   request: (config) ->
     token = tokenFactory.get "/token"
-    #console.log "interceptor", token
     if token
       config.headers.authorization = "Bearer " + token
     config
-
 
   responseError: (response) ->
     console.log "responseError", response
@@ -42,23 +43,6 @@ baioAuth.factory "baioAuthInterceptor", (tokenFactory, $rootScope, $q) ->
 baioAuth.config ($httpProvider) ->
   $httpProvider.interceptors.push "baioAuthInterceptor"
 
-baioAuth.config ($stateProvider) ->
-  $stateProvider.state 'logon',
-    url: "/logon?token",
-    template: "<h1></h1>"
-    controller: ($rootScope, $location, $stateParams, tokenFactory) ->
-      console.log "logon"
-      loginSuccess $stateParams.token, tokenFactory, $rootScope
-
-baioAuth.run ($ionicPlatform, auth) ->
-  $ionicPlatform.ready ->
-    auth.load()
-
-loginSuccess = (token, tokenFactory, $rootScope) ->
-  console.log "loginSuccess", token
-  tokenFactory.set token
-  $rootScope.$broadcast BAIO_AUTH_EVENTS.loginSuccess
-
 baioAuth.provider "auth", ->
 
   @$get = ($q, $resource, tokenFactory, $rootScope) ->
@@ -68,25 +52,48 @@ baioAuth.provider "auth", ->
 
     profile: null
 
-    load: ->
+    setToken: (token) ->
+      tokenFactory.set token
+
+    login: ->
       loaded = $q.defer()
       if @profile
         loaded.resolve(@profile)
       else if tokenFactory.get()
+        #Try to load if there is some authnetication token
         resource.get (res) =>
           @profile = res
           loaded.resolve(res)
+          $rootScope.$broadcast BAIO_AUTH_EVENTS.loginSuccess, res
         , (err) ->
+          $rootScope.$broadcast BAIO_AUTH_EVENTS.loginFailed, err
           loaded.reject(err)
       else
-        loaded.reject("Token not found")
+        err = "Token not found"
+        $rootScope.$broadcast BAIO_AUTH_EVENTS.loginFailed, err
+        loaded.reject err
       loaded.promise
 
-    login: ->
+    logon: (token) ->
+      @setToken token
+      @login()
+
+    logout: ->
+      @profile = null
+      tokenFactory.reset()
+      $rootScope.$broadcast BAIO_AUTH_EVENTS.logout
+
+    openAuthService: (lang) ->
+
+      url = _url
+      if lang
+        url += "?lang=" + lang
+      window.location = url
+
+      #if login request in cordova application, open new window for authorization
       if window.cordova
         ref = window.open(_url, '_blank', 'location=no,toolbar=no')
         ref.addEventListener 'loadstart', (e) ->
-          console.log "load start !", e
           url = e.url
           token = /\?token=(.+)$/.exec(url)
           if token
@@ -94,13 +101,8 @@ baioAuth.provider "auth", ->
             ref.close()
             loginSuccess token[1], tokenFactory, $rootScope
       else
+        # if common web app, use same window
         window.location = _url
-
-    logout: ->
-      console.log "logout"
-      @profile = null
-      tokenFactory.reset()
-      $rootScope.$broadcast BAIO_AUTH_EVENTS.logout
 
   @setUrl = (url) ->
     @url = url
