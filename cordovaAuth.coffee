@@ -57,7 +57,10 @@ baioAuth.provider "auth", ->
 
     login: ->
       loaded = $q.defer()
-      if @profile
+      if !_url
+        #if url is not defined, not use authorization mechanic at all (suits for test purposes)
+        loaded.resolve()
+      else if @profile
         loaded.resolve(@profile)
       else if tokenFactory.get()
         #Try to load if there is some authnetication token
