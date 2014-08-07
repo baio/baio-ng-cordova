@@ -88,6 +88,10 @@ baioAuth.provider "auth", ->
 
     openAuthService: (lang) ->
 
+      if !_url
+        console.log "There is no url defined for auth server, consider test mode, exit from openAuthAService"
+        return
+
       url = _url
       if lang
         url += "?lang=" + lang
