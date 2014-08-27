@@ -59,6 +59,7 @@ baioAuth.provider "auth", ->
       loaded = $q.defer()
       if !_url
         #if url is not defined, not use authorization mechanic at all (suits for test purposes)
+        $rootScope.$broadcast BAIO_AUTH_EVENTS.loginSuccess
         loaded.resolve()
       else if @profile
         loaded.resolve(@profile)
